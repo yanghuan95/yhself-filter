@@ -1,0 +1,19 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain": [
+        "tracker.m-team.cc",
+        "vwd.547990826.xyz"
+      ],
+      "domain_suffix": [
+        "ai.honkai.today",
+        "bochk.com",
+        "dm.547990826.xyz",
+        "opencode.ai",
+        "za.group",
+        "zainvest.group"
+      ]
+    }
+  ]
+}
