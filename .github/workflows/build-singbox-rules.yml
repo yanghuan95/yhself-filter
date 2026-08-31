@@ -1,0 +1,105 @@
+name: Build sing-box rules
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "selfdirect.list"
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install sing-box
+        run: |
+          VERSION=$(curl -fsSL https://api.github.com/repos/SagerNet/sing-box/releases/latest | jq -r '.tag_name' | sed 's/^v//')
+          curl -fsSL \
+            "https://github.com/SagerNet/sing-box/releases/download/v${VERSION}/sing-box-${VERSION}-linux-amd64.tar.gz" \
+            -o sing-box.tar.gz
+          tar -xzf sing-box.tar.gz
+          sudo install -m 755 "sing-box-${VERSION}-linux-amd64/sing-box" /usr/local/bin/sing-box
+          sing-box version
+
+      - name: Convert selfdirect.list
+        run: |
+          python3 <<'PY'
+          import json
+
+          domains = []
+          suffixes = []
+          keywords = []
+
+          with open("selfdirect.list", "r", encoding="utf-8") as f:
+              for raw in f:
+                  line = raw.strip()
+
+                  if not line or line.startswith("#"):
+                      continue
+
+                  parts = [x.strip() for x in line.split(",")]
+
+                  if len(parts) < 2:
+                      continue
+
+                  rule_type = parts[0].upper()
+                  value = parts[1]
+
+                  if rule_type in ("HOST", "DOMAIN"):
+                      domains.append(value)
+
+                  elif rule_type in ("HOST-SUFFIX", "DOMAIN-SUFFIX"):
+                      suffixes.append(value)
+
+                  elif rule_type in ("HOST-KEYWORD", "DOMAIN-KEYWORD"):
+                      keywords.append(value)
+
+          rule = {}
+
+          if domains:
+              rule["domain"] = sorted(set(domains))
+
+          if suffixes:
+              rule["domain_suffix"] = sorted(set(suffixes))
+
+          if keywords:
+              rule["domain_keyword"] = sorted(set(keywords))
+
+          output = {
+              "version": 3,
+              "rules": [rule]
+          }
+
+          with open("selfdirect.json", "w", encoding="utf-8") as f:
+              json.dump(output, f, ensure_ascii=False, indent=2)
+
+          print(json.dumps(output, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Compile rule-set
+        run: |
+          sing-box rule-set compile selfdirect.json -o selfdirect.srs
+
+      - name: Commit generated files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add selfdirect.json selfdirect.srs
+
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+
+          git commit -m "build: update sing-box rule-set"
+          git push
