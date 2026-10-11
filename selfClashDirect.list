@@ -1,10 +1,10 @@
-DOMAIN-SUFFIX, zainvest.group, direct
-DOMAIN-SUFFIX, za.group, direct
-DOMAIN-SUFFIX, honkai.today, direct
-DOMAIN, tracker.m-team.cc, direct
-DOMAIN-SUFFIX, bochk.com, direct
-DOMAIN-SUFFIX, opencode.ai, direct
-DOMAIN-SUFFIX, dm.547990826.xyz, direct
-DOMAIN, vwd.547990826.xyz, direct
-DOMAIN-SUFFIX, palworldgame.com, direct
-DOMAIN-SUFFIX, tekqart.com, direct
+DOMAIN-SUFFIX,zainvest.group,DIRECT
+DOMAIN-SUFFIX,za.group,DIRECT
+DOMAIN-SUFFIX,honkai.today,DIRECT
+DOMAIN,tracker.m-team.cc,DIRECT
+DOMAIN-SUFFIX,bochk.com,DIRECT
+DOMAIN-SUFFIX,opencode.ai,DIRECT
+DOMAIN-SUFFIX,dm.547990826.xyz,DIRECT
+DOMAIN,vwd.547990826.xyz,DIRECT
+DOMAIN-SUFFIX,vivo.xyz,DIRECT
+DOMAIN-SUFFIX,tekqart.com,DIRECT

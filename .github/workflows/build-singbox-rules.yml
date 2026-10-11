@@ -1,105 +1,83 @@
-name: Build sing-box rules
+name: Build platform rules
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
-      - "selfdirect.list"
-
+      - selfdirect.list
+      - special.list
+      - scripts/**
+      - tests/**
+      - .github/workflows/build-singbox-rules.yml
+  pull_request:
+    paths:
+      - selfdirect.list
+      - special.list
+      - scripts/**
+      - tests/**
+      - .github/workflows/build-singbox-rules.yml
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: platform-rules-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: write
+    env:
+      SING_BOX_VERSION: 1.13.21
+      SING_BOX_SHA256: 24f9ef8e7234e13e71e74c3598a4164c5fe07b7b67ccc6e96cf68b54789f72cd
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Queued main builds use the current branch, including prior bot commits.
+          ref: ${{ github.event_name == 'push' && 'main' || github.ref }}
 
-      - name: Install sing-box
+      - name: Install pinned sing-box
+        shell: bash
         run: |
-          VERSION=$(curl -fsSL https://api.github.com/repos/SagerNet/sing-box/releases/latest | jq -r '.tag_name' | sed 's/^v//')
-          curl -fsSL \
-            "https://github.com/SagerNet/sing-box/releases/download/v${VERSION}/sing-box-${VERSION}-linux-amd64.tar.gz" \
-            -o sing-box.tar.gz
-          tar -xzf sing-box.tar.gz
-          sudo install -m 755 "sing-box-${VERSION}-linux-amd64/sing-box" /usr/local/bin/sing-box
-          sing-box version
+          set -euo pipefail
+          archive="sing-box-${SING_BOX_VERSION}-linux-amd64.tar.gz"
+          base="https://github.com/SagerNet/sing-box/releases/download/v${SING_BOX_VERSION}"
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 3 "$base/$archive" -o "$archive"
+          echo "$SING_BOX_SHA256  $archive" | sha256sum -c -
+          tar -xzf "$archive"
+          mkdir -p "$RUNNER_TEMP/sing-box-bin"
+          cp "sing-box-${SING_BOX_VERSION}-linux-amd64/sing-box" "$RUNNER_TEMP/sing-box-bin/"
+          echo "$RUNNER_TEMP/sing-box-bin" >> "$GITHUB_PATH"
 
-      - name: Convert selfdirect.list
+      - name: Test converter and binary round trips
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Generate and compile both rule sets
+        run: python3 scripts/build_rules.py
+
+      - name: Upload generated rules
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-rules
+          path: rules/
+          if-no-files-found: error
+
+      - name: Publish generated files
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        shell: bash
         run: |
-          python3 <<'PY'
-          import json
-
-          domains = []
-          suffixes = []
-          keywords = []
-
-          with open("selfdirect.list", "r", encoding="utf-8") as f:
-              for raw in f:
-                  line = raw.strip()
-
-                  if not line or line.startswith("#"):
-                      continue
-
-                  parts = [x.strip() for x in line.split(",")]
-
-                  if len(parts) < 2:
-                      continue
-
-                  rule_type = parts[0].upper()
-                  value = parts[1]
-
-                  if rule_type in ("HOST", "DOMAIN"):
-                      domains.append(value)
-
-                  elif rule_type in ("HOST-SUFFIX", "DOMAIN-SUFFIX"):
-                      suffixes.append(value)
-
-                  elif rule_type in ("HOST-KEYWORD", "DOMAIN-KEYWORD"):
-                      keywords.append(value)
-
-          rule = {}
-
-          if domains:
-              rule["domain"] = sorted(set(domains))
-
-          if suffixes:
-              rule["domain_suffix"] = sorted(set(suffixes))
-
-          if keywords:
-              rule["domain_keyword"] = sorted(set(keywords))
-
-          output = {
-              "version": 3,
-              "rules": [rule]
-          }
-
-          with open("selfdirect.json", "w", encoding="utf-8") as f:
-              json.dump(output, f, ensure_ascii=False, indent=2)
-
-          print(json.dumps(output, ensure_ascii=False, indent=2))
-          PY
-
-      - name: Compile rule-set
-        run: |
-          sing-box rule-set compile selfdirect.json -o selfdirect.srs
-
-      - name: Commit generated files
-        run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add selfdirect.json selfdirect.srs
-
+          git add rules selfdirect.json selfdirect.srs selfClashDirect.list
           if git diff --cached --quiet; then
             echo "No changes"
             exit 0
           fi
-
-          git commit -m "build: update sing-box rule-set"
-          git push
+          git commit -m "build: update platform rule sets"
+          git push origin HEAD:main

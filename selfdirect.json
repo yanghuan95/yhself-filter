@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 2,
   "rules": [
     {
       "domain": [
@@ -7,14 +7,14 @@
         "vwd.547990826.xyz"
       ],
       "domain_suffix": [
-        "bochk.com",
-        "dm.547990826.xyz",
-        "honkai.today",
-        "opencode.ai",
-        "tekqart.com",
-        "vivo.xyz",
+        "zainvest.group",
         "za.group",
-        "zainvest.group"
+        "honkai.today",
+        "bochk.com",
+        "opencode.ai",
+        "dm.547990826.xyz",
+        "vivo.xyz",
+        "tekqart.com"
       ]
     }
   ]
